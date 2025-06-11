@@ -10,12 +10,12 @@ repos:
     hooks:
       - id: pylint
         args: ["user_service/src/"]
-        # additional_dependencies: ["pylint==3.3.7"]
+        # additional_dependencies: ["pylint==3.3.7", "pydantic[email]>=2.11.5"]
 
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.16.0
-  #   hooks:
-  #     - id: mypy
-  #       args: ["user_service/src/"]
-  #       # additional_dependencies: ["mypy==1.16.0"]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.0
+    hooks:
+      - id: mypy
+        args: ["user_service/src/"]
+        # additional_dependencies: ["mypy==1.16.0", "pydantic[email]>=2.11.5"]
         
