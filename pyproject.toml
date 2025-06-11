@@ -1,0 +1,31 @@
+[project]
+name = "tinderly-dev"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "emexec",email = "toru7653@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+]
+
+[tool.poetry]
+name = "root-tools"
+version = "0.1.0"
+description = "Root-level tools for linting and type checking"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.7.0"
+black = "^25.1.0"
+pylint = "^3.3.7"
+mypy = "^1.16.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
