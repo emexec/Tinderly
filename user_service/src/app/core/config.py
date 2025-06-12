@@ -2,11 +2,16 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Config(BaseSettings):
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    ALGORITHM: str
     SECRET_KEY: str
     POSTGRES_USER: str
     POSTGRES_PASS: str
     POSTGRES_HOST: str
     POSTGRES_PORT: int
+    
+
+
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(

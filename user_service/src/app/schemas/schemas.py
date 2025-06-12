@@ -1,7 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, UUID4
 
-class UserBase(BaseModel):
+class User(BaseModel):
     gender: str
     name: str
     date_of_birth: datetime
@@ -9,14 +9,14 @@ class UserBase(BaseModel):
     email: EmailStr
     subscription: bool
 
-class UserCreate(UserBase):
+class UserCreate(User):
     password: str
 
-class UserInDB(UserBase):
+class UserInDB(User):
     id: UUID4
     hashed_password: str
 
-class UserPublic(UserBase):
+class UserPublic(User):
     id: UUID4
 
 class Token(BaseModel):
