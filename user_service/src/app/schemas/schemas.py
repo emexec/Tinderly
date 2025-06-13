@@ -8,6 +8,7 @@ class User(BaseModel):
     relationship_priority: str
     email: EmailStr
     subscription: bool
+    is_active: bool
 
 class UserCreate(User):
     password: str

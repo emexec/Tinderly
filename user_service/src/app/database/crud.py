@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from .models import User
 
@@ -31,8 +31,13 @@ class CRUDBase(Generic[ModelType]):
         await db.refresh(db_obj)
         return db_obj
 
-    async def get(self, db: AsyncSession, id: UUID) -> Optional[ModelType]:
+    async def get_by_id(self, db: AsyncSession, id: UUID) -> Optional[ModelType]:
         query = select(self.model).where(self.model.id == id)
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def get_by_email(self, db: AsyncSession, email: EmailStr) -> Optional[ModelType]:
+        query = select(self.model).where(self.model.email == email)
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
@@ -76,5 +81,6 @@ class CRUDBase(Generic[ModelType]):
         await db.delete(db_obj)
         await db.commit()
         return db_obj
+
 
 UserCRUD = CRUDBase(model=User)
