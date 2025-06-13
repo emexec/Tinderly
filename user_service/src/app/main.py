@@ -40,7 +40,6 @@ async def health_check(session: Annotated[AsyncSession, Depends(get_async_sessio
 
 
 """
-Добавить докерфайлы и докеркомпос
 Настроить api/auth.py так, чтобы была интегрирована базаданных и
 Понять что к чему т.к. надо заменить алгоритм, и решить как это в куках хранить.
 """
