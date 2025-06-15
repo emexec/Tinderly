@@ -7,6 +7,8 @@ services:
     depends_on:
       - db
     environment:
+      PRIVATE_KEY_PATH: /app/keys/private.pem
+      PUBLIC_KEY_PATH: /app/keys/public.pem
       POSTGRES_USER: user_serv
       POSTGRES_PASS: 7ceb02b03d95ee9c
       POSTGRES_HOST: db
@@ -14,6 +16,7 @@ services:
       POSTGRES_DB: user_db
     volumes:
       - .:/app
+      - ./keys:/app/keys:ro
     command: poetry run python -m uvicorn user_service.src.app.main:app --host 0.0.0.0 --port 8000 --reload
 
   db:

@@ -3,7 +3,7 @@ from enum import Enum
 from uuid import UUID as UUID_type, uuid4
 
 from sqlalchemy import Enum as PgEnum
-from sqlalchemy import String, DateTime
+from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
@@ -35,7 +35,8 @@ class User(Base):
         PgEnum(RelationshipPriorityEnum, name="relationship_priority_enum"), nullable=False)
     email: Mapped[str] = mapped_column(
         String(length=320), unique=True, index=True, nullable=False)
-
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    subscription: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
 
     def __repr__(self):

@@ -11,7 +11,7 @@ from pydantic import EmailStr
 from ..database.crud import UserCRUD
 from ..database.sessions import AsyncSession, get_async_session
 from ..schemas.schemas import User, UserInDB, Token, TokenData
-from ..core.config import settings
+from ..core.config import settings, PRIVATE_KEY, PUBLIC_KEY
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/token")
@@ -25,18 +25,20 @@ def verify_password(plain_password, hashed_password):
 def get_password_hash(password):
     return pwd_context.hash(password)
 
+print(get_password_hash("Kasd18S2one"))
+
 # --- Token Generation ---
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY_PRIVATE, algorithm="RS256")
+    return jwt.encode(to_encode, PRIVATE_KEY, algorithm="RS256")
 
 def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY_PRIVATE, algorithm="RS256")
+    return jwt.encode(to_encode, PRIVATE_KEY, algorithm="RS256")
 
 # --- Authentication Flow ---
 @router_auth.post("/token", response_model=Token)
@@ -68,7 +70,7 @@ async def refresh_token(request: Request, session: Annotated[AsyncSession, Depen
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
-        payload = jwt.decode(refresh_token, settings.SECRET_KEY_PUBLICK, algorithms=["RS256"])
+        payload = jwt.decode(refresh_token, PUBLIC_KEY, algorithms=["RS256"])
         email = payload.get("sub")
         if not email:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
@@ -98,7 +100,7 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY_PUBLICK, algorithms=["RS256"])
+        payload = jwt.decode(token, PUBLIC_KEY, algorithms=["RS256"])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
