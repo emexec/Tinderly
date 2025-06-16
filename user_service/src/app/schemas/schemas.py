@@ -1,12 +1,13 @@
-from datetime import datetime
-from pydantic import BaseModel, EmailStr, UUID4
+from datetime import date
+from pydantic import BaseModel, EmailStr, UUID4, ConfigDict
 
 class User(BaseModel):
     gender: str
     name: str
-    date_of_birth: datetime
+    date_of_birth: date
     relationship_priority: str
     email: EmailStr
+    role: str
     subscription: bool
     is_active: bool
 
@@ -24,6 +25,12 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class UserOut(BaseModel):
+    id: UUID4
+    email: EmailStr
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
 
 class TokenData(BaseModel):
     username: str | None = None

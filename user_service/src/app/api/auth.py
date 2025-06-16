@@ -2,15 +2,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Form
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from pydantic import EmailStr
 
 from ..database.crud import UserCRUD
 from ..database.sessions import AsyncSession, get_async_session
-from ..schemas.schemas import User, UserInDB, Token, TokenData
+from ..schemas.forms import FormEmailUpdate, FormPasswordUpdate, FormUserCreate
+from ..schemas.schemas import User, UserOut, Token
 from ..core.config import settings, PRIVATE_KEY, PUBLIC_KEY
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -24,8 +24,6 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
-
-print(get_password_hash("Kasd18S2one"))
 
 # --- Token Generation ---
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
@@ -41,7 +39,30 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
     return jwt.encode(to_encode, PRIVATE_KEY, algorithm="RS256")
 
 # --- Authentication Flow ---
-@router_auth.post("/token", response_model=Token)
+@router_auth.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+async def register_for_tokens(
+    response: Response,
+    user_form: Annotated[FormUserCreate, Form()],
+    session: Annotated[AsyncSession, Depends(get_async_session)]
+):
+    data = user_form.dict()
+    password = data.pop("password")
+
+    existing_user = await UserCRUD.get_by_email(db=session, email=data["email"])
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists."
+        )
+
+    hashed_password = get_password_hash(password)
+    data["hashed_password"] = hashed_password
+
+    user = await UserCRUD.create(db=session, obj_in=data)
+
+    return UserOut(**user.to_dict())
+
+@router_auth.post("/login", response_model=Token)
 async def login_for_access_token(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -51,7 +72,7 @@ async def login_for_access_token(
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
     refresh_token = create_refresh_token(data={"sub": user.email})
 
     response.set_cookie(
@@ -88,6 +109,9 @@ async def refresh_token(request: Request, session: Annotated[AsyncSession, Depen
 async def logout(response: Response):
     response.delete_cookie("refresh_token", path="/users/refresh")
     return {"detail": "Logged out"}
+
+# @router_auth.post("/logout")
+# async def logout(response: Response):
 
 # --- Current User Utilities ---
 async def get_current_user(
