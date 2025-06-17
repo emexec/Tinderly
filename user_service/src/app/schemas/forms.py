@@ -5,7 +5,6 @@ from .enums import GenderEnum, RelationshipPriorityEnum
 
 class FormEmailUpdate(BaseModel):
     password: str
-    email: EmailStr
     new_email: EmailStr
 
 class FormPasswordUpdate(BaseModel):

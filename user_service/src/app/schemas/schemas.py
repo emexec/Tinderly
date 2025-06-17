@@ -1,5 +1,5 @@
 from datetime import date
-from pydantic import BaseModel, EmailStr, UUID4, ConfigDict
+from pydantic import BaseModel, EmailStr, UUID4
 
 class User(BaseModel):
     gender: str
@@ -10,15 +10,12 @@ class User(BaseModel):
     role: str
     subscription: bool
     is_active: bool
+    hashed_password: str
 
 class UserCreate(User):
     password: str
 
 class UserInDB(User):
-    id: UUID4
-    hashed_password: str
-
-class UserPublic(User):
     id: UUID4
 
 class Token(BaseModel):
@@ -30,7 +27,5 @@ class UserOut(BaseModel):
     email: EmailStr
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
-
 class TokenData(BaseModel):
-    username: str | None = None
+    email: EmailStr
