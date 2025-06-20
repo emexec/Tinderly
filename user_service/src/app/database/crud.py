@@ -57,7 +57,7 @@ class CRUDBase(Generic[ModelType]):
         id: UUID,
         obj_in: Union[dict, UpdateSchemaType]
     ) -> Optional[ModelType]:
-        db_obj = await self.get(db, id)
+        db_obj = await self.get_by_id(db, id)
         if not db_obj:
             return None
 
@@ -74,7 +74,7 @@ class CRUDBase(Generic[ModelType]):
         return db_obj
 
     async def delete(self, db: AsyncSession, id: UUID) -> Optional[ModelType]:
-        db_obj = await self.get(db, id)
+        db_obj = await self.get_by_id(db, id)
         if not db_obj:
             return None
 

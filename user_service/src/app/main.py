@@ -9,6 +9,7 @@ from .core.config import PRIVATE_KEY
 from .database.crud import UserCRUD
 from .database.sessions import init_db, drop_db, get_async_session, AsyncSession
 from .database.models import GenderEnum, RelationshipPriorityEnum  # Импортируй свои Enum'ы
+from .api.smtp import smtp_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,7 +20,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(router=router_auth)
-
+app.include_router(router=smtp_router)
 
 @app.get("/health")
 async def health_check(session: Annotated[AsyncSession, Depends(get_async_session)]):

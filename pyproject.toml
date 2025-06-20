@@ -10,7 +10,8 @@ requires-python = ">=3.13"
 dependencies = [
     "pydantic[email] (>=2.11.5,<3.0.0)",
     "cryptography (>=45.0.4,<46.0.0)",
-    "loguru (>=0.7.3,<0.8.0)"
+    "loguru (>=0.7.3,<0.8.0)",
+    "inbox (>=0.2.10,<0.3.0)"
 ]
 
 [tool.poetry]

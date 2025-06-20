@@ -1,32 +1,85 @@
 services:
-  api:
+  smtp:
+    image: mailhog/mailhog
+    container_name: smtp
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+  user_service:
     build: ./user_service/
-    container_name: fastapi_app
+    container_name: user_service
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - cache
+    env_file: .env
     environment:
       PRIVATE_KEY_PATH: /app/keys/private.pem
       PUBLIC_KEY_PATH: /app/keys/public.pem
-      POSTGRES_USER: user_serv
-      POSTGRES_PASS: 7ceb02b03d95ee9c
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: user_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASS: ${POSTGRES_PASS}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
     volumes:
       - .:/app
       - ./keys:/app/keys:ro
     command: poetry run python -m uvicorn user_service.src.app.main:app --host 0.0.0.0 --port 8000 --reload
 
+  worker:
+    build:
+      context: ./user_service
+      dockerfile: Dockerfile.worker
+    container_name: celery_worker
+    depends_on:
+      - user_service
+      - db
+      - cache
+    env_file: .env
+    environment:
+      PRIVATE_KEY_PATH: /app/keys/private.pem
+      PUBLIC_KEY_PATH: /app/keys/public.pem
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASS: ${POSTGRES_PASS}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    volumes:
+      - .:/app
+      - ./keys:/app/keys:ro
+
+  cache:
+    image: redis:8.0.2-alpine
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81 # --save 20 1 --loglevel warning 
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+
   db:
     image: postgres:15
-    container_name: postgres_db
+    container_name: user_db
     restart: always
+    env_file: .env
     environment:
-      POSTGRES_USER: user_serv
-      POSTGRES_PASSWORD: 7ceb02b03d95ee9c
-      POSTGRES_DB: app_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
@@ -34,3 +87,8 @@ services:
 
 volumes:
   pgdata:
+  redis_data:
+
+
+
+

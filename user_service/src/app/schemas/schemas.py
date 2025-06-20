@@ -11,6 +11,7 @@ class User(BaseModel):
     subscription: bool
     is_active: bool
     hashed_password: str
+    is_verified: bool
 
 class UserCreate(User):
     password: str
@@ -29,3 +30,8 @@ class UserOut(BaseModel):
 
 class TokenData(BaseModel):
     email: EmailStr
+
+class EmailRequest(BaseModel):
+    to: EmailStr
+    subject: str
+    body: str

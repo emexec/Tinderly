@@ -31,6 +31,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String, nullable=False)
     subscription: Mapped[bool] = mapped_column(default=False)
     is_active: Mapped[bool] = mapped_column(default=True)
+    is_verified: Mapped[bool] = mapped_column(default=False)
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email})>"

@@ -7,14 +7,19 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
+from pydantic import EmailStr
 from sqlalchemy.exc import SQLAlchemyError
 
+from ..core.config import settings, PRIVATE_KEY, PUBLIC_KEY
 from ..database.crud import UserCRUD
 from ..database.sessions import AsyncSession, get_async_session
 from ..schemas.forms import FormEmailUpdate, FormPasswordUpdate, FormUserCreate
 from ..schemas.schemas import User, UserOut, Token, TokenData, UserInDB
-from ..core.config import settings, PRIVATE_KEY, PUBLIC_KEY
-
+from ..utils.utils import generate_2fa_code
+from ..worker import (get_2fa_code_from_redis,
+store_2fa_code_in_redis,
+send_email_2fa_scheduled,
+redis_client)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -52,26 +57,67 @@ def create_refresh_token(data: dict, expires_delta: timedelta | None = None):
 
 
 # --- Authentication Flow ---
-@router_auth.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def register_for_tokens(
-    response: Response,
+
+@router_auth.post("/register", status_code=status.HTTP_201_CREATED)
+async def register_for_2fa(
     user_form: Annotated[FormUserCreate, Form()],
-    session: Annotated[AsyncSession, Depends(get_async_session)]
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ):
     data = user_form.dict()
     password = data.pop("password")
 
     if await UserCRUD.get_by_email(db=session, email=data["email"]):
         logger.warning(f"Attempt to register with existing email: {data['email']}")
-        raise HTTPException(status_code=409, detail="User with this email already exists.")
+        raise HTTPException(status_code=409, detail="User already exists.")
 
     hashed_password = get_password_hash(password)
     data["hashed_password"] = hashed_password
 
+    # Устанавливаем is_verified=False
+    data["is_verified"] = False
     user = await UserCRUD.create(db=session, obj_in=data)
 
-    logger.info(f"User registered: {user.email}")
+    # Генерируем 2FA код
+    code = generate_2fa_code()
 
+    # Сохраняем в Redis
+    store_2fa_code_in_redis(email=user.email, code=code)
+
+    # Отправляем через Celery
+    send_email_2fa_scheduled.delay(user.email, code)
+
+    logger.info(f"User registered (pending verification): {user.email}")
+
+    return {"detail": "Check your email for a verification code"}
+
+@router_auth.post("/verify-2fa", response_model=Token)
+async def verify_2fa_code(
+    email: EmailStr,
+    code: str,
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+    response: Response
+):
+    stored_code = get_2fa_code_from_redis(email)
+
+    if not stored_code or str(stored_code).strip() != code.strip():
+        raise HTTPException(status_code=401, detail="Invalid or expired 2FA code")
+
+    user = await UserCRUD.get_by_email(db=session, email=email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="User already verified")
+
+    # Обновляем статус
+    await UserCRUD.update(
+            db=session,
+            id=user.id,
+            obj_in={"is_verified": True}
+        )
+    redis_client.delete(f"2fa:{email}")
+
+    # Выдаём токены
     access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
     refresh_token = create_refresh_token(data={"sub": user.email})
 
@@ -81,6 +127,36 @@ async def register_for_tokens(
     )
 
     return Token(access_token=access_token, token_type="bearer")
+# @router_auth.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
+# async def register_for_tokens(
+#     response: Response,
+#     user_form: Annotated[FormUserCreate, Form()],
+#     session: Annotated[AsyncSession, Depends(get_async_session)],
+#     code: Annotated[str, Depends(generate_2fa_code)]
+# ):
+#     data = user_form.dict()
+#     password = data.pop("password")
+
+#     if await UserCRUD.get_by_email(db=session, email=data["email"]):
+#         logger.warning(f"Attempt to register with existing email: {data['email']}")
+#         raise HTTPException(status_code=409, detail="User with this email already exists.")
+
+#     hashed_password = get_password_hash(password)
+#     data["hashed_password"] = hashed_password
+
+#     user = await UserCRUD.create(db=session, obj_in=data)
+
+#     logger.info(f"User registered: {user.email}")
+
+#     access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
+#     refresh_token = create_refresh_token(data={"sub": user.email})
+
+#     response.set_cookie(
+#         key="refresh_token", value=refresh_token,
+#         httponly=True, secure=True, samesite="strict", path="/users/refresh"
+#     )
+
+#     return Token(access_token=access_token, token_type="bearer")
 
 
 @router_auth.post("/token", response_model=Token)
