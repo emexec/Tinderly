@@ -73,17 +73,13 @@ async def register_for_2fa(
     hashed_password = get_password_hash(password)
     data["hashed_password"] = hashed_password
 
-    # Устанавливаем is_verified=False
     data["is_verified"] = False
     user = await UserCRUD.create(db=session, obj_in=data)
 
-    # Генерируем 2FA код
     code = generate_2fa_code()
 
-    # Сохраняем в Redis
     store_2fa_code_in_redis(email=user.email, code=code)
 
-    # Отправляем через Celery
     send_email_2fa_scheduled.delay(user.email, code)
 
     logger.info(f"User registered (pending verification): {user.email}")
@@ -109,7 +105,6 @@ async def verify_2fa_code(
     if user.is_verified:
         raise HTTPException(status_code=400, detail="User already verified")
 
-    # Обновляем статус
     await UserCRUD.update(
             db=session,
             id=user.id,
@@ -117,7 +112,6 @@ async def verify_2fa_code(
         )
     redis_client.delete(f"2fa:{email}")
 
-    # Выдаём токены
     access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
     refresh_token = create_refresh_token(data={"sub": user.email})
 
@@ -127,37 +121,6 @@ async def verify_2fa_code(
     )
 
     return Token(access_token=access_token, token_type="bearer")
-# @router_auth.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-# async def register_for_tokens(
-#     response: Response,
-#     user_form: Annotated[FormUserCreate, Form()],
-#     session: Annotated[AsyncSession, Depends(get_async_session)],
-#     code: Annotated[str, Depends(generate_2fa_code)]
-# ):
-#     data = user_form.dict()
-#     password = data.pop("password")
-
-#     if await UserCRUD.get_by_email(db=session, email=data["email"]):
-#         logger.warning(f"Attempt to register with existing email: {data['email']}")
-#         raise HTTPException(status_code=409, detail="User with this email already exists.")
-
-#     hashed_password = get_password_hash(password)
-#     data["hashed_password"] = hashed_password
-
-#     user = await UserCRUD.create(db=session, obj_in=data)
-
-#     logger.info(f"User registered: {user.email}")
-
-#     access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
-#     refresh_token = create_refresh_token(data={"sub": user.email})
-
-#     response.set_cookie(
-#         key="refresh_token", value=refresh_token,
-#         httponly=True, secure=True, samesite="strict", path="/users/refresh"
-#     )
-
-#     return Token(access_token=access_token, token_type="bearer")
-
 
 @router_auth.post("/token", response_model=Token)
 async def login_for_access_token(
